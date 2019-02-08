@@ -5,7 +5,7 @@ import (
     "net/http"
     "encoding/json"
     "io/ioutil"
-    //"github.com/jamespearly/loggly"
+    "github.com/jamespearly/loggly"
 )
 
 type Player struct {
@@ -34,17 +34,13 @@ type Player struct {
 func apiRequest() *http.Response {
     url := "https://api.pubg.com/shards/steam/players/account.ab3ebdd2cbe44e5996bad678dd15ac3b/seasons/lifetime"
 
-   // Create a Bearer string by appending string access token
    var bearer = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI0NTU1YTNhMC0wYWNlLTAxMzctZDgzZS01OTE5NGVkMTExNzMiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNTQ5MzAwNDc2LCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6ImJhZ3VubmVyMzAwIn0.7SZyFCrSf9_LaoSdmqSJ-IqGj9ONcTs1ehPFlTp05Rw"
    var the = "application/vnd.api+json"
-   // Create a new request using http
    req, err := http.NewRequest("GET", url, nil)
 
-   // add authorization header to the req
    req.Header.Add("Authorization", bearer)
    req.Header.Add("Accept", the)
 
-   // Send req using http Client
    client := &http.Client{}
    resp, err := client.Do(req)
    if err != nil {
@@ -74,7 +70,6 @@ func main() {
 
     response := apiRequest()
 
-    fmt.Println("Successfully Opened")
     defer response.Body.Close()
 
     byteValue, _ := ioutil.ReadAll(response.Body)
@@ -83,7 +78,8 @@ func main() {
 
     json.Unmarshal(byteValue, &stats)
 
-    //fmt.Println(stats)
-    printStats(&stats)
+    client := loggly.New("PUBG api")
+
+    logContent := client.Send("info", string(stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed))
 
 }
