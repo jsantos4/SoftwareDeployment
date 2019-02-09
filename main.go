@@ -5,7 +5,8 @@ import (
     "net/http"
     "encoding/json"
     "io/ioutil"
-    "github.com/jamespearly/loggly"
+    "loggly"
+    "os"
 )
 
 type Player struct {
@@ -21,10 +22,10 @@ type Player struct {
                     TimeSurvived        float64 `json:"timeSurvived"`
                     Kills               int     `json:"kills"`
                     HeadshotKills       int     `json:"headshotKills"`
-					DamageDealt         float64 `json:"damageDealt"`
+		    DamageDealt         float64 `json:"damageDealt"`
                     LongestKill         float64 `json:"longestKill"`
                     MaxKillStreaks      int     `json:"maxKillStreaks"`
-					Heals               int     `json:"heals"`
+		    Heals               int     `json:"heals"`
 				} `json:"solo-fpp"`
             }`json: "GameModeStats"`
         }`json: "attributes"`
@@ -61,8 +62,8 @@ func printStats(player *Player) {
     fmt.Println("Headshots: ", player.Data.Attributes.GameModeStats.SoloFpp.HeadshotKills)
     fmt.Println("Damage dealt: ", player.Data.Attributes.GameModeStats.SoloFpp.DamageDealt)
     fmt.Println("Longest Kill: ", player.Data.Attributes.GameModeStats.SoloFpp.LongestKill)
-    fmt.Println("Highest killstreak", player.Data.Attributes.GameModeStats.SoloFpp.MaxKillStreaks)
-    fmt.Println("Times healed", player.Data.Attributes.GameModeStats.SoloFpp.Heals)
+    fmt.Println("Highest killstreak: ", player.Data.Attributes.GameModeStats.SoloFpp.MaxKillStreaks)
+    fmt.Println("Times healed: ", player.Data.Attributes.GameModeStats.SoloFpp.Heals)
 }
 
 
@@ -80,6 +81,11 @@ func main() {
 
     client := loggly.New("PUBG api")
 
-    logContent := client.Send("info", string(stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed))
+    roundsPlayed := stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed
 
+    logMessage := "Rounds played: " + roundsPlayed
+    logContent := client.EchoSend("info", logMessage)
+
+    fmt.Println("erro: ", logContent)
+    printStats(&stats)
 }
