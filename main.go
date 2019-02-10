@@ -5,7 +5,8 @@ import (
     "net/http"
     "encoding/json"
     "io/ioutil"
-    "github.com/jamespearly/loggly"
+    "loggly"
+    "strconv"
 )
 
 type Player struct {
@@ -80,9 +81,10 @@ func main() {
 
     client := loggly.New("PUBG api")
 
-    logMessage := "Rounds played: " + string(stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed)
+    logMessage := "Rounds played: " + strconv.Itoa(stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed)
     logContent := client.Send("info", logMessage)
 
+    fmt.Println(logMessage)
     fmt.Println(logContent)
 
 }
