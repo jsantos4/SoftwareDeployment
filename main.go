@@ -5,8 +5,11 @@ import (
     "net/http"
     "encoding/json"
     "io/ioutil"
-    "loggly"
+    cron "github.com/robfig/cron"
+    loggly "github.com/jamespearly/loggly"
     "strconv"
+    "os"
+    "os/signal"
 )
 
 type Player struct {
@@ -67,7 +70,7 @@ func printStats(player *Player) {
 }
 
 
-func main() {
+func run() {
 
     response := apiRequest()
 
@@ -84,7 +87,15 @@ func main() {
     logMessage := "Rounds played: " + strconv.Itoa(stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed)
     logContent := client.Send("info", logMessage)
 
-    fmt.Println(logMessage)
     fmt.Println(logContent)
+}
 
+func main() {
+	c := cron.New()
+	c.AddFunc("@every 12h", func() { run() })
+	c.Start()
+
+	sig := make(chan os.Signal)
+	signal.Notify(sig, os.Interrupt, os.Kill)
+	<-sig
 }
