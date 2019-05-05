@@ -7,43 +7,36 @@ import (
     "io/ioutil"
     cron "github.com/robfig/cron"
     loggly "github.com/jamespearly/loggly"
-    "strconv"
+    "github.com/aws/aws-sdk-go/aws"
+    "github.com/aws/aws-sdk-go/aws/session"
+    "github.com/aws/aws-sdk-go/service/dynamodb"
+    "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
     "os"
     "os/signal"
+    "time"
 )
 
-type Player struct {
-	Data struct {
-		Type string `json:"type"`
-		Attributes struct {
-			GameModeStats struct {
-				SoloFpp struct {
-                    Wins                int     `json:"wins"`
-                    RoundsPlayed        int     `json:"roundsPlayed"`
-                    Top10S              int     `json:"top10s"`
-                    LongestTimeSurvived float64 `json:"longestTimeSurvived"`
-                    TimeSurvived        float64 `json:"timeSurvived"`
-                    Kills               int     `json:"kills"`
-                    HeadshotKills       int     `json:"headshotKills"`
-					DamageDealt         float64 `json:"damageDealt"`
-                    LongestKill         float64 `json:"longestKill"`
-                    MaxKillStreaks      int     `json:"maxKillStreaks"`
-					Heals               int     `json:"heals"`
-				} `json:"solo-fpp"`
-            }`json: "GameModeStats"`
-        }`json: "attributes"`
-    }`json: "data"`
+type Person struct {
+	Name    string `json:"name"`
+	Surname string `json:"surname"`
+	Gender  string `json:"gender"`
+	Region  string `json:"region"`
+}
+
+
+type PersonName struct {
+  Name string
+  Surname string
+  Gender string
+  Region string
+  TimeStamp string
 }
 
 func apiRequest() *http.Response {
-    url := "https://api.pubg.com/shards/steam/players/account.ab3ebdd2cbe44e5996bad678dd15ac3b/seasons/lifetime"
+    url := "https://uinames.com/api/"
 
-   var bearer = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI0NTU1YTNhMC0wYWNlLTAxMzctZDgzZS01OTE5NGVkMTExNzMiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNTQ5MzAwNDc2LCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6ImJhZ3VubmVyMzAwIn0.7SZyFCrSf9_LaoSdmqSJ-IqGj9ONcTs1ehPFlTp05Rw"
-   var the = "application/vnd.api+json"
+
    req, err := http.NewRequest("GET", url, nil)
-
-   req.Header.Add("Authorization", bearer)
-   req.Header.Add("Accept", the)
 
    client := &http.Client{}
    resp, err := client.Do(req)
@@ -54,19 +47,11 @@ func apiRequest() *http.Response {
    return resp
 }
 
-func printStats(player *Player) {
+func printStats(Person *Person) {
     fmt.Println("Stats")
-    fmt.Println("Wins: ", player.Data.Attributes.GameModeStats.SoloFpp.Wins)
-    fmt.Println("Rounds played: ", player.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed)
-    fmt.Println("Top 10s: ", player.Data.Attributes.GameModeStats.SoloFpp.Top10S)
-    fmt.Println("Longest time survived: ", player.Data.Attributes.GameModeStats.SoloFpp.LongestTimeSurvived)
-    fmt.Println("Total time survived: ", player.Data.Attributes.GameModeStats.SoloFpp.TimeSurvived)
-    fmt.Println("Kills: ", player.Data.Attributes.GameModeStats.SoloFpp.Kills)
-    fmt.Println("Headshots: ", player.Data.Attributes.GameModeStats.SoloFpp.HeadshotKills)
-    fmt.Println("Damage dealt: ", player.Data.Attributes.GameModeStats.SoloFpp.DamageDealt)
-    fmt.Println("Longest Kill: ", player.Data.Attributes.GameModeStats.SoloFpp.LongestKill)
-    fmt.Println("Highest killstreak", player.Data.Attributes.GameModeStats.SoloFpp.MaxKillStreaks)
-    fmt.Println("Times healed", player.Data.Attributes.GameModeStats.SoloFpp.Heals)
+    fmt.Println("Name: ", Person.Name, Person.Surname)
+    fmt.Println("Region:", Person.Region)
+
 }
 
 
@@ -78,21 +63,61 @@ func run() {
 
     byteValue, _ := ioutil.ReadAll(response.Body)
 
-    var stats Player
+    var stats Person
 
     json.Unmarshal(byteValue, &stats)
 
-    client := loggly.New("PUBG api")
+    client := loggly.New("Name")
 
-    logMessage := "Rounds played: " + strconv.Itoa(stats.Data.Attributes.GameModeStats.SoloFpp.RoundsPlayed)
+    logMessage := "Full name: " + stats.Name + stats.Surname
     logContent := client.Send("info", logMessage)
 
     fmt.Println(logContent)
+
+    ses, err := session.NewSession(&aws.Config{
+	Region: aws.String("us-east-1")},
+    )
+    if err != nil {
+	fmt.Println("Error creating session:")
+	fmt.Println(err.Error())
+	os.Exit(1)
+    }
+
+    // Create DynamoDB client
+    svc := dynamodb.New(ses)
+
+		  res := stats
+
+	e := PersonName{
+        Name: res.Name,
+        Surname: res.Surname,
+        Gender: res.Gender,
+        Region: res.Region,
+        TimeStamp: time.Now().Format("2019-01-01 12:05:28"),
+	  }
+
+    av, err := dynamodbattribute.MarshalMap(e)
+
+    input := &dynamodb.PutItemInput{
+	Item:      av,
+	TableName: aws.String("JinYang"),
+    }
+
+    _, err = svc.PutItem(input)
+
+    if err != nil {
+	fmt.Println("Got error calling PutItem:")
+	fmt.Println(err.Error())
+	os.Exit(1)
+    }
+
+    fmt.Println("success")
+
 }
 
 func main() {
 	c := cron.New()
-	c.AddFunc("@every 12h", func() { run() })
+	c.AddFunc("@every 1h", func() { run() })
 	c.Start()
 
 	sig := make(chan os.Signal)
